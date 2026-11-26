@@ -1,0 +1,609 @@
+<!doctype html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>JasonOS</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Press+Start+2P&family=Space+Mono:wght@400;700&display=swap">
+<style>
+  /* JasonOS : faux OS rétro. Bureau teal + fenêtres crème à bordures nettes, ombres dures, police pixel. Monde visuel unique -> thème unique assumé. */
+  :root {
+    --desk: #2f6f73;
+    --desk-2: #2a6367;
+    --win: #efe9dc;
+    --win-2: #e4dcc9;
+    --bar: #e7dfcc;
+    --ink: #141414;
+    --muted: #5c564a;
+    --line: #141414;
+    --shadow: 4px 4px 0 #141414;
+    --shadow-sm: 2px 2px 0 #141414;
+    --red: #b3361a;
+    --yellow: #f2a33a;
+    --green: #2f9e5b;
+    --blue: #2457d6;
+    --pixel: "Press Start 2P", monospace;
+    --mono: "Space Mono", ui-monospace, "SF Mono", Menlo, monospace;
+    color-scheme: light;
+  }
+  * { box-sizing: border-box; }
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    font-family: var(--mono);
+    color: var(--ink);
+    background:
+      radial-gradient(rgba(0,0,0,0.10) 1px, transparent 1px) 0 0 / 7px 7px,
+      var(--desk);
+    overflow-x: hidden;
+    -webkit-font-smoothing: antialiased;
+  }
+  button { font-family: inherit; }
+
+  /* ---------- MENUBAR ---------- */
+  .menubar {
+    position: fixed; top: 0; left: 0; right: 0; z-index: 40;
+    display: flex; align-items: center; justify-content: space-between;
+    gap: 1rem; height: 30px;
+    padding: 0 max(10px, env(safe-area-inset-right, 0px)) 0 max(10px, env(safe-area-inset-left, 0px));
+    padding-top: env(safe-area-inset-top, 0px);
+    background: var(--win);
+    border-bottom: 2px solid var(--ink);
+    font-size: 0.72rem;
+  }
+  .menubar .brand { font-family: var(--pixel); font-size: 0.6rem; letter-spacing: 0.03em; }
+  .menubar .diamond { color: var(--red); }
+  .menubar .right { display: flex; align-items: center; gap: 0.8rem; color: var(--muted); }
+  .menubar .clock { white-space: nowrap; }
+  .menubar .mlink { color: var(--ink); text-decoration: none; border-bottom: 1px solid var(--ink); }
+  @media (max-width: 560px) { .menubar .mlink { display: none; } }
+
+  /* ---------- DESKTOP ---------- */
+  .desktop {
+    position: relative;
+    min-height: 100vh;
+    padding-top: calc(30px + env(safe-area-inset-top, 0px) + 12px);
+    padding-bottom: calc(40px + env(safe-area-inset-bottom, 0px) + 12px);
+    padding-left: max(10px, env(safe-area-inset-left, 0px));
+    padding-right: max(10px, env(safe-area-inset-right, 0px));
+  }
+
+  /* desktop icons */
+  .icons {
+    position: absolute;
+    top: calc(30px + env(safe-area-inset-top, 0px) + 14px);
+    left: max(10px, env(safe-area-inset-left, 0px));
+    display: grid; grid-template-columns: repeat(2, 74px); gap: 0.6rem;
+    z-index: 1;
+  }
+  .icon {
+    display: flex; flex-direction: column; align-items: center; gap: 4px;
+    background: transparent; border: 2px solid transparent; border-radius: 6px;
+    padding: 6px 4px; cursor: pointer; color: var(--win);
+    font-family: var(--mono); font-size: 0.68rem;
+  }
+  .icon:hover, .icon:focus-visible { border-color: rgba(255,255,255,0.5); outline: none; }
+  .icon .glyph {
+    width: 40px; height: 40px; display: grid; place-items: center;
+    background: var(--win); border: 2px solid var(--ink); border-radius: 4px;
+    box-shadow: var(--shadow-sm); font-size: 1.2rem;
+  }
+  .icon .lbl { background: var(--desk-2); padding: 1px 4px; border-radius: 3px; }
+
+  /* ---------- WINDOWS ---------- */
+  .win {
+    position: absolute;
+    width: 580px; max-width: calc(100vw - 24px);
+    background: var(--win);
+    border: 2px solid var(--ink);
+    box-shadow: var(--shadow);
+    display: flex; flex-direction: column;
+    max-height: calc(100vh - 110px);
+  }
+  .win__bar {
+    display: flex; align-items: center; gap: 0.5rem;
+    padding: 6px 8px; background: var(--bar);
+    border-bottom: 2px solid var(--ink); cursor: grab; user-select: none;
+  }
+  .win__bar:active { cursor: grabbing; }
+  .win__btn {
+    width: 16px; height: 16px; flex: none;
+    border: 2px solid var(--ink); border-radius: 50%;
+    background: var(--win); cursor: pointer; padding: 0;
+    display: grid; place-items: center; line-height: 0;
+  }
+  .win__btn--close { background: var(--red); }
+  .win__title {
+    flex: 1; text-align: center; margin: 0;
+    font-family: var(--pixel); font-size: 0.56rem; letter-spacing: 0.02em;
+    text-transform: uppercase; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+  }
+  .win__body { padding: 1.1rem 1.2rem; overflow: auto; }
+
+  /* ---------- CONTENT ---------- */
+  h3.pixel { font-family: var(--pixel); font-size: 0.95rem; line-height: 1.5; margin: 0 0 0.6rem; }
+  .win p { margin: 0 0 0.8rem; line-height: 1.55; font-size: 0.86rem; }
+  .win .muted { color: var(--muted); }
+
+  .about { display: flex; gap: 1.1rem; align-items: flex-start; flex-wrap: wrap; }
+  .avatar {
+    width: 86px; height: 86px; flex: none;
+    background: var(--ink); color: var(--yellow);
+    display: grid; place-items: center;
+    font-family: var(--pixel); font-size: 1.3rem;
+    border: 2px solid var(--ink); box-shadow: var(--shadow-sm);
+  }
+  .about__main { flex: 1; min-width: 220px; }
+  .role { color: var(--red); font-weight: 700; font-size: 0.82rem; margin: 0 0 0.7rem; }
+
+  .specs { display: grid; grid-template-columns: 110px 1fr; gap: 0.35rem 0.8rem; margin: 0.9rem 0; font-size: 0.82rem; }
+  .specs dt { font-weight: 700; }
+  .specs dd { margin: 0; color: var(--muted); }
+  .specs .hot { color: var(--green); font-weight: 700; }
+
+  .btn-row { display: flex; flex-wrap: wrap; gap: 0.5rem; margin-top: 1rem; }
+  .btn {
+    font-family: var(--mono); font-size: 0.78rem; font-weight: 700;
+    padding: 0.45rem 0.9rem; background: var(--win);
+    border: 2px solid var(--ink); box-shadow: var(--shadow-sm);
+    cursor: pointer; text-decoration: none; color: var(--ink);
+  }
+  .btn:hover { transform: translate(-1px,-1px); box-shadow: 3px 3px 0 var(--ink); }
+  .btn:active { transform: translate(1px,1px); box-shadow: 1px 1px 0 var(--ink); }
+  .btn--primary { background: var(--ink); color: var(--win); }
+  .btn:focus-visible { outline: 2px solid var(--blue); outline-offset: 2px; }
+
+  /* explorer (projets) */
+  .exp__path { font-size: 0.74rem; color: var(--muted); border-bottom: 2px solid var(--ink); padding-bottom: 0.5rem; margin-bottom: 0.8rem; }
+  .files { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 1rem; margin-bottom: 1rem; }
+  .file {
+    display: flex; flex-direction: column; align-items: center; gap: 10px;
+    padding: 14px 6px; background: transparent; border: 2px solid transparent;
+    cursor: pointer; font-family: var(--mono); font-size: 0.7rem; text-align: center; color: var(--ink);
+  }
+  .file:hover { border-color: var(--line); }
+  .file[aria-pressed="true"] { background: var(--blue); color: #fff; border-color: var(--ink); }
+  .file[aria-pressed="true"] .file__tag { color: #ffe; }
+  .file__glyph { font-size: 1.7rem; line-height: 1; }
+  .file__tag { font-size: 0.62rem; color: var(--muted); }
+  .detail { border-top: 2px solid var(--ink); padding-top: 0.9rem; }
+  .detail .meta { font-size: 0.78rem; color: var(--muted); margin: 0 0 0.3rem; }
+  .detail .meta b { color: var(--ink); }
+  .badge { display: inline-block; padding: 1px 6px; border: 1px solid var(--ink); font-size: 0.72rem; }
+  .badge--wip { background: var(--yellow); }
+  .badge--ok { background: var(--green); color: #fff; }
+
+  /* skills */
+  .skillblock { margin-bottom: 1rem; }
+  .skillblock h4 { font-family: var(--mono); font-weight: 700; font-size: 0.82rem; margin: 0 0 0.45rem; }
+  .skillblock h4 .b { color: var(--red); }
+  .chips { display: flex; flex-wrap: wrap; gap: 0.35rem; }
+  .chip { font-size: 0.74rem; padding: 0.2rem 0.5rem; background: var(--win-2); border: 2px solid var(--ink); }
+
+  /* parcours */
+  .tl { display: grid; gap: 0.7rem; }
+  .tl .row { display: grid; grid-template-columns: 110px 1fr; gap: 0.8rem; }
+  .tl .when { color: var(--red); font-weight: 700; font-size: 0.8rem; }
+  .tl .what b { display: block; font-size: 0.86rem; }
+  .tl .what span { color: var(--muted); font-size: 0.8rem; }
+  @media (max-width: 460px) { .tl .row { grid-template-columns: 1fr; gap: 0.1rem; } }
+
+  /* terminal */
+  .terminal { background: #0c0f0c; color: #7CFC9A; border: 2px solid var(--ink); padding: 0.9rem; font-size: 0.8rem; min-height: 150px; white-space: pre-wrap; word-break: break-word; }
+  .terminal .pr { color: #6fd0ff; }
+  .terminal .cur { display: inline-block; width: 0.55ch; height: 1em; background: #7CFC9A; vertical-align: -0.1em; animation: blink 1s steps(1) infinite; }
+  @keyframes blink { 50% { opacity: 0; } }
+
+  /* contact */
+  .crow { display: flex; gap: 0.7rem; padding: 0.35rem 0; flex-wrap: wrap; font-size: 0.84rem; }
+  .crow .k { color: var(--red); font-weight: 700; min-width: 90px; }
+  .crow a { color: var(--blue); }
+  .crow .v { word-break: break-all; }
+
+  /* ---------- TASKBAR ---------- */
+  .taskbar {
+    position: fixed; bottom: 0; left: 0; right: 0; z-index: 40;
+    display: flex; align-items: center; gap: 0.5rem; height: 40px;
+    padding: 0 max(8px, env(safe-area-inset-right, 0px)) 0 max(8px, env(safe-area-inset-left, 0px));
+    padding-bottom: env(safe-area-inset-bottom, 0px);
+    background: var(--win); border-top: 2px solid var(--ink);
+    font-size: 0.72rem; overflow-x: auto;
+  }
+  .start { font-family: var(--pixel); font-size: 0.55rem; padding: 6px 8px; border: 2px solid var(--ink); background: var(--win-2); box-shadow: var(--shadow-sm); cursor: pointer; white-space: nowrap; }
+  .start .diamond { color: var(--red); }
+  .tasks { display: flex; gap: 0.4rem; flex: 1; overflow-x: auto; }
+  .task { border: 2px solid var(--ink); background: var(--win); padding: 4px 8px; cursor: pointer; white-space: nowrap; font-size: 0.7rem; }
+  .task[aria-pressed="true"] { background: var(--ink); color: var(--win); }
+  .task-gh { color: var(--ink); text-decoration: none; border: 2px solid var(--ink); background: var(--win); padding: 5px 8px; white-space: nowrap; box-shadow: var(--shadow-sm); }
+
+  /* ---------- BOOT ---------- */
+  .boot {
+    position: fixed; inset: 0; z-index: 100;
+    background: #0c0f0c; color: #7CFC9A;
+    font-family: var(--mono); font-size: 0.82rem;
+    padding: calc(env(safe-area-inset-top,0px) + 2rem) 1.4rem 2rem;
+    display: flex; flex-direction: column; justify-content: center; gap: 0.3rem;
+  }
+  .boot { cursor: pointer; user-select: none; }
+  .boot div { opacity: 0; }
+  .boot .hint { margin-top: 1.4rem; color: #4f7a5a; font-size: 0.72rem; }
+
+  /* ---------- MOBILE : fenêtres empilées ---------- */
+  @media (max-width: 760px) {
+    .icons {
+      position: static; width: auto; display: flex; flex-direction: row; flex-wrap: wrap;
+      gap: 0.5rem; margin-bottom: 1rem; justify-content: center;
+    }
+    .windows { display: flex; flex-direction: column; gap: 1rem; }
+    .win {
+      position: relative !important;
+      left: auto !important; top: auto !important;
+      width: 100% !important; max-width: 100%;
+      max-height: none;
+    }
+    .win__bar { cursor: default; }
+  }
+
+  /* reset de base (document autonome) */
+  *{box-sizing:border-box}
+  [hidden]{display:none!important}
+  img{max-width:100%}
+</style>
+</head>
+<body>
+<div class="boot" id="boot" aria-hidden="true">
+  <div>JasonOS 1.0 · BIOS (c) 2026 Jason Mosomoni</div>
+  <div>Mémoire vive ............ Réseau · Cybersécurité · Linux</div>
+  <div>Interfaces réseau ....... eth0 [ UP ] · lab [ UP ]</div>
+  <div>Modules de sécurité ..... IDS · SIEM · pare-feu chargés</div>
+  <div>Chargement du bureau .... [ OK ]</div>
+  <p class="hint">Cliquez ou appuyez sur une touche pour continuer</p>
+</div>
+
+<header class="menubar">
+  <div class="brand"><span class="diamond">◆</span> JasonOS</div>
+  <div class="right">
+    <a class="mlink" href="https://github.com/jmosomoni" id="ghTop" target="_blank" rel="noopener">GitHub</a>
+    <time class="clock" id="clock"></time>
+  </div>
+</header>
+
+<main class="desktop" id="desktop">
+  <nav class="icons" aria-label="Icônes du bureau">
+    <button class="icon" data-open="about"><span class="glyph">🧑‍💻</span><span class="lbl">À propos</span></button>
+    <button class="icon" data-open="projects"><span class="glyph">📁</span><span class="lbl">Projets</span></button>
+    <button class="icon" data-open="skills"><span class="glyph">🧩</span><span class="lbl">Compétences</span></button>
+    <button class="icon" data-open="parcours"><span class="glyph">🎓</span><span class="lbl">Parcours</span></button>
+    <button class="icon" data-open="terminal"><span class="glyph">▪️</span><span class="lbl">Terminal</span></button>
+    <button class="icon" data-open="contact"><span class="glyph">✉️</span><span class="lbl">Contact</span></button>
+    <button class="icon" data-open="cv"><span class="glyph">📄</span><span class="lbl">CV.pdf</span></button>
+  </nav>
+
+  <div class="windows" id="windows">
+
+    <!-- À PROPOS -->
+    <section class="win" id="win-about" data-win="about" style="left:180px; top:16px; width:580px; z-index:11;" hidden>
+      <header class="win__bar"><button class="win__btn win__btn--close" data-close aria-label="Fermer">×</button><h2 class="win__title">À propos de Jason</h2></header>
+      <div class="win__body">
+        <div class="about">
+          <div class="avatar" aria-hidden="true">JM</div>
+          <div class="about__main">
+            <h3 class="pixel">Jason Mosomoni</h3>
+            <p class="role">Réseau &amp; Cybersécurité · Étudiant M1 Informatique, Université Lyon 2</p>
+            <p>Je m'intéresse à la sécurité des systèmes et des réseaux : comment ils sont construits, comment ils sont attaqués, et comment les défendre. Je mets ces notions en pratique dans un lab maison (Proxmox, pfSense, Wazuh, Kali). Je cherche un stage en réseau ou cybersécurité.</p>
+            <dl class="specs">
+              <dt>Réseau</dt><dd>Subnetting · VLAN · routage · NAT · DNS/DHCP · TCP/IP</dd>
+              <dt>Sécurité</dt><dd>Blue team / SOC · détection d'intrusion · hardening · pentest (lab)</dd>
+              <dt>Systèmes</dt><dd>Linux · pfSense/OPNsense · Proxmox · VirtualBox · Kali</dd>
+              <dt>Langages</dt><dd>Python · Bash · Java · SQL · JS · HTML/CSS</dd>
+              <dt>Statut</dt><dd class="hot">Cherche un stage</dd>
+            </dl>
+            <div class="btn-row">
+              <button class="btn" data-open="skills">Compétences…</button>
+              <button class="btn btn--primary" data-open="contact">Me contacter</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- PROJETS -->
+    <section class="win" id="win-projects" data-win="projects" style="left:780px; top:16px; width:600px; z-index:12;" hidden>
+      <header class="win__bar"><button class="win__btn win__btn--close" data-close aria-label="Fermer">×</button><h2 class="win__title">Projets</h2></header>
+      <div class="win__body">
+        <div class="exp__path">/Jason/Projets</div>
+        <div class="files" id="files" role="group" aria-label="Projets"></div>
+        <div class="detail" id="detail" aria-live="polite"></div>
+      </div>
+    </section>
+
+    <!-- COMPÉTENCES -->
+    <section class="win" id="win-skills" data-win="skills" style="left:180px; top:120px; width:520px; z-index:10;" hidden>
+      <header class="win__bar"><button class="win__btn win__btn--close" data-close aria-label="Fermer">×</button><h2 class="win__title">Compétences</h2></header>
+      <div class="win__body">
+        <div class="skillblock"><h4><span class="b"># </span>Réseau</h4><div class="chips"><span class="chip">Subnetting</span><span class="chip">VLAN</span><span class="chip">Routage</span><span class="chip">Pare-feu</span><span class="chip">NAT</span><span class="chip">DNS/DHCP</span><span class="chip">TCP/IP</span></div></div>
+        <div class="skillblock"><h4><span class="b"># </span>Cybersécurité</h4><div class="chips"><span class="chip">Blue team / SOC</span><span class="chip">SIEM (Wazuh)</span><span class="chip">Détection d'intrusion</span><span class="chip">tcpdump / Wireshark</span><span class="chip">nmap</span><span class="chip">Hardening</span></div></div>
+        <div class="skillblock"><h4><span class="b"># </span>Systèmes &amp; Virtualisation</h4><div class="chips"><span class="chip">Linux</span><span class="chip">Proxmox</span><span class="chip">pfSense/OPNsense</span><span class="chip">VirtualBox</span><span class="chip">Kali</span><span class="chip">iptables</span></div></div>
+        <div class="skillblock"><h4><span class="b"># </span>Développement</h4><div class="chips"><span class="chip">Python</span><span class="chip">Flask</span><span class="chip">Spring Boot</span><span class="chip">React</span><span class="chip">MySQL</span><span class="chip">Ollama / LLM</span></div></div>
+      </div>
+    </section>
+
+    <!-- PARCOURS -->
+    <section class="win" id="win-parcours" data-win="parcours" style="left:240px; top:150px; width:500px; z-index:9;" hidden>
+      <header class="win__bar"><button class="win__btn win__btn--close" data-close aria-label="Fermer">×</button><h2 class="win__title">Parcours</h2></header>
+      <div class="win__body">
+        <div class="tl">
+          <div class="row"><span class="when">2026–2027</span><span class="what"><b>Master 1 Informatique</b><span>Université Lumière Lyon 2</span></span></div>
+          <div class="row"><span class="when">2026</span><span class="what"><b>Stage — Cybersécurité</b><span>Ouitec</span></span></div>
+          <div class="row"><span class="when">2026</span><span class="what"><b>Stage — Laboratoire informatique</b><span>Inria, Lyon</span></span></div>
+          <div class="row"><span class="when">2025</span><span class="what"><b>Stage — Laboratoire informatique</b><span>INSA Lyon</span></span></div>
+          <div class="row"><span class="when">2022–2025</span><span class="what"><b>Licence Informatique</b><span>Université Lumière Lyon 2</span></span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- TERMINAL -->
+    <section class="win" id="win-terminal" data-win="terminal" style="left:300px; top:90px; width:520px; z-index:8;" hidden>
+      <header class="win__bar"><button class="win__btn win__btn--close" data-close aria-label="Fermer">×</button><h2 class="win__title">Terminal</h2></header>
+      <div class="win__body" style="padding:0;">
+        <div class="terminal" id="term"></div>
+      </div>
+    </section>
+
+    <!-- CONTACT -->
+    <section class="win" id="win-contact" data-win="contact" style="left:260px; top:180px; width:480px; z-index:7;" hidden>
+      <header class="win__bar"><button class="win__btn win__btn--close" data-close aria-label="Fermer">×</button><h2 class="win__title">Contact</h2></header>
+      <div class="win__body">
+        <p class="muted">Pour un stage ou un échange, voici où me joindre :</p>
+        <div class="crow"><span class="k">email</span><span class="v" id="emailV">jason.mosomoni3@univ-lyon2.fr</span></div>
+        <div class="crow"><span class="k">lieu</span><span class="v">Lyon, France</span></div>
+      </div>
+    </section>
+
+    <!-- CV -->
+    <section class="win" id="win-cv" data-win="cv" style="left:300px; top:130px; width:440px; z-index:6;" hidden>
+      <header class="win__bar"><button class="win__btn win__btn--close" data-close aria-label="Fermer">×</button><h2 class="win__title">CV.pdf</h2></header>
+      <div class="win__body">
+        <p class="muted">Mon curriculum vitae (format PDF).</p>
+        <div class="btn-row"><a class="btn btn--primary" href="CV.pdf" target="_blank" rel="noopener">Ouvrir le CV (PDF)</a></div>
+      </div>
+    </section>
+
+  </div>
+</main>
+
+<footer class="taskbar">
+  <button class="start" id="startBtn"><span class="diamond">◆</span> Menu</button>
+  <div class="tasks" id="tasks"></div>
+  <a class="task-gh" href="https://github.com/jmosomoni" id="ghBottom" target="_blank" rel="noopener">GitHub</a>
+</footer>
+
+<script>
+(function () {
+  "use strict";
+
+  /* ----- Horloge ----- */
+  var clock = document.getElementById('clock');
+  function tick() {
+    var d = new Date();
+    var jours = ['dim.','lun.','mar.','mer.','jeu.','ven.','sam.'];
+    var mois = ['janv.','févr.','mars','avr.','mai','juin','juil.','août','sept.','oct.','nov.','déc.'];
+    var hh = ('0'+d.getHours()).slice(-2), mm = ('0'+d.getMinutes()).slice(-2);
+    clock.textContent = jours[d.getDay()] + ' ' + d.getDate() + ' ' + mois[d.getMonth()] + ' · ' + hh + ' h ' + mm;
+  }
+  tick(); setInterval(tick, 10000);
+
+  /* ----- Projets ----- */
+  var projets = [
+    { id:'cyber', glyph:'🛰️', name:'cyber_analyse/', tag:'Terminé',
+      title:'Cyber_analyse — Détecteur d\'intrusion hybride',
+      desc:'Outil de supervision réseau (blue team) : capture le trafic avec tcpdump, détecte en temps réel les scans de ports et le brute-force, et utilise un LLM local pour expliquer les menaces en français. Le code détecte (rapide, fiable), l\'IA explique. Alertes horodatées, zéro faux positif (filtre SYN, multicast, liste blanche auto).',
+      type:'Cybersécurité · détection', stack:'Python · tcpdump · Ollama', state:'ok', year:'2026',
+      github:'https://github.com/jmosomoni/Cyber_analyse' },
+    { id:'wazuh', glyph:'🛡️', name:'soc_wazuh/', tag:'Terminé',
+      title:'SOC maison avec Wazuh',
+      desc:'Déploiement d\'un SIEM Wazuh pour surveiller un parc de machines : agent sur une cible, simulation d\'attaques depuis Kali (scan, brute-force SSH), détection et analyse des alertes dans le dashboard.',
+      type:'Blue team · SIEM', stack:'Wazuh · Kali · Linux', state:'ok', year:'2026' },
+    { id:'infra', glyph:'🧱', name:'infra_segmentee/', tag:'En cours',
+      title:'Infrastructure réseau segmentée',
+      desc:'Conception d\'une infra sécurisée avec pare-feu (Proxmox + pfSense/OPNsense) : zones isolées, VLAN, règles en moindre privilège (default-deny) et preuve d\'isolation par tests de connectivité.',
+      type:'Réseau · pare-feu', stack:'pfSense · Proxmox · VLAN', state:'wip', year:'2026' },
+    { id:'ssh', glyph:'🚨', name:'bruteforce_detect/', tag:'Terminé',
+      title:'Détection de brute-force SSH',
+      desc:'Script Python qui lit le journal d\'authentification en temps réel, compte les tentatives échouées par IP, et bloque automatiquement les attaquants via iptables. Alerte e-mail avec rapport joint.',
+      type:'Sécurité · automatisation', stack:'Python · iptables · regex', state:'ok', year:'2025',
+      github:'https://github.com/jmosomoni/Detection_brute_ssh' },
+    { id:'meteo', glyph:'🌤️', name:'meteo_app/', tag:'Terminé',
+      title:'Application Météo — React',
+      desc:'Application web qui affiche la météo en temps réel d\'une ville (température, humidité, vent) avec des icônes dynamiques selon le temps et jour/nuit. Données via l\'API WeatherAPI, recherche par ville et gestion des erreurs.',
+      type:'Front-end · API', stack:'React · TypeScript · Tailwind', state:'ok', year:'2026',
+      github:'https://github.com/jmosomoni/Meteo_app' }
+  ];
+
+  var filesEl = document.getElementById('files');
+  var detailEl = document.getElementById('detail');
+
+  function renderDetail(p) {
+    var badge = p.state === 'wip'
+      ? '<span class="badge badge--wip">En cours</span>'
+      : '<span class="badge badge--ok">Terminé</span>';
+    detailEl.innerHTML =
+      '<div style="display:flex;justify-content:space-between;align-items:center;gap:0.7rem;flex-wrap:wrap;margin-bottom:0.6rem;">' +
+        '<h3 class="pixel" style="margin:0;">' + esc(p.name) + '</h3>' +
+        (p.github ? '<a class="btn btn--primary" href="' + p.github + '" target="_blank" rel="noopener">Code source</a>' : '') +
+      '</div>' +
+      '<p>' + esc(p.desc) + '</p>' +
+      '<p class="meta"><b>Type :</b> ' + esc(p.type) + '</p>' +
+      '<p class="meta"><b>Pile :</b> ' + esc(p.stack) + '</p>' +
+      '<p class="meta"><b>État :</b> ' + badge + ' · ' + p.year + '</p>';
+  }
+  function esc(s){ return s.replace(/[&<>"]/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]; }); }
+
+  projets.forEach(function (p, i) {
+    var b = document.createElement('button');
+    b.className = 'file';
+    b.setAttribute('aria-pressed', i === 0 ? 'true' : 'false');
+    b.innerHTML = '<span class="file__glyph">' + p.glyph + '</span><span class="file__name">' + esc(p.name) + '</span><span class="file__tag">' + esc(p.tag) + '</span>';
+    b.addEventListener('click', function () {
+      filesEl.querySelectorAll('.file').forEach(function (f) { f.setAttribute('aria-pressed', 'false'); });
+      b.setAttribute('aria-pressed', 'true');
+      renderDetail(p);
+    });
+    filesEl.appendChild(b);
+  });
+  renderDetail(projets[0]);
+
+  /* ----- Gestion des fenêtres ----- */
+  var zTop = 20;
+  var openSet = [];
+  var tasksEl = document.getElementById('tasks');
+  var titles = { about:'À propos', projects:'Projets', skills:'Compétences', parcours:'Parcours', terminal:'Terminal', contact:'Contact', cv:'CV.pdf' };
+
+  function winEl(name){ return document.querySelector('[data-win="'+name+'"]'); }
+
+  function focusWin(name) {
+    var w = winEl(name); if (!w) return;
+    zTop++; w.style.zIndex = zTop;
+    renderTasks(name);
+  }
+  function openWin(name) {
+    var w = winEl(name); if (!w) return;
+    if (w.hidden) { w.hidden = false; if (openSet.indexOf(name) < 0) openSet.push(name); }
+    focusWin(name);
+    if (name === 'terminal') startTerminal();
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      w.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    }
+  }
+  function closeWin(name) {
+    var w = winEl(name); if (!w) return;
+    w.hidden = true;
+    openSet = openSet.filter(function (n) { return n !== name; });
+    renderTasks(null);
+  }
+  function renderTasks(active) {
+    tasksEl.innerHTML = '';
+    openSet.forEach(function (name) {
+      var t = document.createElement('button');
+      t.className = 'task';
+      t.textContent = titles[name] || name;
+      t.setAttribute('aria-pressed', name === active ? 'true' : 'false');
+      t.addEventListener('click', function () { openWin(name); });
+      tasksEl.appendChild(t);
+    });
+  }
+
+  document.querySelectorAll('[data-open]').forEach(function (el) {
+    el.addEventListener('click', function () { openWin(el.getAttribute('data-open')); });
+  });
+  document.querySelectorAll('[data-close]').forEach(function (el) {
+    el.addEventListener('click', function (e) {
+      e.stopPropagation();
+      var w = el.closest('.win');
+      if (w) closeWin(w.getAttribute('data-win'));
+    });
+  });
+  document.querySelectorAll('.win').forEach(function (w) {
+    w.addEventListener('pointerdown', function () { focusWin(w.getAttribute('data-win')); });
+  });
+
+  /* Menu démarrer : ouvre À propos */
+  document.getElementById('startBtn').addEventListener('click', function () { openWin('about'); });
+
+  /* ----- Déplacement des fenêtres (desktop) ----- */
+  document.querySelectorAll('.win__bar').forEach(function (bar) {
+    bar.addEventListener('pointerdown', function (e) {
+      if (window.matchMedia('(max-width: 760px)').matches) return;
+      if (e.target.closest('.win__btn')) return;
+      var w = bar.closest('.win');
+      var sx = e.clientX, sy = e.clientY;
+      var rect = w.getBoundingClientRect();
+      var startLeft = rect.left + window.scrollX;
+      var startTop = rect.top + window.scrollY;
+      w.style.left = startLeft + 'px';
+      w.style.top = startTop + 'px';
+      function move(ev) {
+        var nx = startLeft + (ev.clientX - sx);
+        var ny = startTop + (ev.clientY - sy);
+        nx = Math.max(2, Math.min(nx, window.innerWidth - 80));
+        ny = Math.max(34, Math.min(ny, window.innerHeight - 60));
+        w.style.left = nx + 'px';
+        w.style.top = ny + 'px';
+      }
+      function up() {
+        document.removeEventListener('pointermove', move);
+        document.removeEventListener('pointerup', up);
+      }
+      document.addEventListener('pointermove', move);
+      document.addEventListener('pointerup', up);
+    });
+  });
+
+  /* ----- Terminal (une seule fois) ----- */
+  var termStarted = false;
+  function startTerminal() {
+    if (termStarted) return;
+    termStarted = true;
+    var el = document.getElementById('term');
+    var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    var lines = [
+      { pr:'jason@jasonos:~$ ', tx:'whoami' },
+      { pr:'', tx:'étudiant M1 — réseau & cybersécurité' },
+      { pr:'jason@jasonos:~$ ', tx:'cat objectif.txt' },
+      { pr:'', tx:'stage réseau / sécurité · devenir pro' },
+      { pr:'jason@jasonos:~$ ', tx:'ls projets/' },
+      { pr:'', tx:'cyber_analyse  soc_wazuh  infra_segmentee  bruteforce_detect  flask_securise' },
+      { pr:'jason@jasonos:~$ ', tx:'' }
+    ];
+    function paint(done, cur) {
+      var h = '';
+      done.forEach(function (l) { h += '<span class="pr">'+l.pr+'</span>'+esc(l.tx)+'\n'; });
+      if (cur) h += '<span class="pr">'+cur.pr+'</span>'+esc(cur.tx);
+      h += '<span class="cur"></span>';
+      el.innerHTML = h;
+    }
+    if (reduce) { paint(lines, null); return; }
+    var done = [], li = 0, ci = 0;
+    (function run() {
+      if (li >= lines.length) { paint(done, null); return; }
+      var full = lines[li].tx; ci++;
+      paint(done, { pr: lines[li].pr, tx: full.slice(0, ci) });
+      if (ci >= full.length) { done.push(lines[li]); li++; ci = 0; setTimeout(run, 400); }
+      else setTimeout(run, 40);
+    })();
+  }
+
+  /* ----- Boot ----- */
+  var boot = document.getElementById('boot');
+  var bootLines = boot.querySelectorAll('div');
+  var reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+  function startDesktop() {
+    if (window.matchMedia('(max-width: 760px)').matches) {
+      openWin('about');
+    } else {
+      openWin('about'); openWin('projects');
+    }
+  }
+  function hideBoot() {
+    if (boot.hidden) return;
+    boot.hidden = true;
+    startDesktop();
+  }
+  if (reduce) {
+    bootLines.forEach(function (l) { l.style.opacity = 1; });
+    hideBoot();
+  } else {
+    bootLines.forEach(function (l, i) {
+      setTimeout(function () { l.style.opacity = 1; }, 80 * (i + 1));
+    });
+    var auto = setTimeout(hideBoot, 1000);
+    function skip() { clearTimeout(auto); hideBoot(); }
+    boot.addEventListener('click', skip);
+    boot.addEventListener('pointerdown', skip);
+    boot.addEventListener('touchstart', skip, { passive: true });
+    document.addEventListener('keydown', skip);
+  }
+})();
+</script>
+</body>
+</html>
